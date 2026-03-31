@@ -274,9 +274,35 @@ const CLSID: [u8; 16] = [
 - Windows 10/11 SDK
 - Rust stable (MSVC toolchain)
 
+## Examples
+
+Two complete example APOs are included in `examples/`:
+
+### `examples/gain` -- Minimal gain/volume APO
+
+The simplest possible APO -- multiplies every sample by a constant. Shows the bare minimum needed to get an APO working: config, trait impl, macro call.
+
+```bash
+cargo build --release -p gain-apo
+# produces target/release/gain_apo.dll
+```
+
+### `examples/echo` -- Stereo echo/delay with feedback
+
+A 250ms delay effect with feedback and wet/dry mix. Demonstrates:
+- Pre-allocating a ring buffer in `initialize()` (zero allocations in `process()`)
+- Adapting to sample rate and channel count in `lock()`
+- Ring buffer technique for real-time delay lines
+- Reporting processing latency to the audio engine
+
+```bash
+cargo build --release -p echo-apo
+# produces target/release/echo_apo.dll
+```
+
 ## Real-world example
 
-See `hrtf-apo/` for a full consumer that implements HRTF binaural spatialization with:
+See [Individualized_HRTF_Synthesis/hrtf-apo](https://github.com/matbeedotcom/Individualized_HRTF_Synthesis) for a production consumer that implements HRTF binaural spatialization with:
 - 8ch to 2ch convolution via `ApoProcessor::process()`
 - Game audio enhancement (EQ, transient shaping, limiter)
 - Real-time audio event classification

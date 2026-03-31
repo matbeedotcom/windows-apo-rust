@@ -1,0 +1,15 @@
+[package]
+name = "echo-apo"
+version = "0.1.0"
+edition = "2021"
+description = "Example APO: stereo echo/delay effect with feedback"
+
+[lib]
+crate-type = ["cdylib"]
+name = "echo_apo"
+
+[dependencies]
+windows-apo = { path = "../.." }
+
+[build-dependencies]
+windows-apo = { path = "../.." }

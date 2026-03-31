@@ -1,0 +1,15 @@
+[package]
+name = "gain-apo"
+version = "0.1.0"
+edition = "2021"
+description = "Minimal example: simple gain/volume APO"
+
+[lib]
+crate-type = ["cdylib"]
+name = "gain_apo"
+
+[dependencies]
+windows-apo = { path = "../.." }
+
+[build-dependencies]
+windows-apo = { path = "../.." }

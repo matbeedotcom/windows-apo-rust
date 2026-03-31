@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "examples/gain", "examples/echo"]
+resolver = "2"
+
 [package]
 name = "windows-apo"
 version = "0.1.0"
