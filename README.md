@@ -300,13 +300,3 @@ cargo build --release -p echo-apo
 # produces target/release/echo_apo.dll
 ```
 
-## Real-world example
-
-See [Individualized_HRTF_Synthesis/hrtf-apo](https://github.com/matbeedotcom/Individualized_HRTF_Synthesis) for a production consumer that implements HRTF binaural spatialization with:
-- 8ch to 2ch convolution via `ApoProcessor::process()`
-- Game audio enhancement (EQ, transient shaping, limiter)
-- Real-time audio event classification
-- Additional C++ DSP (footstep enhancer, feature extraction)
-- Shared memory IPC with a GUI
-- Audio capture system
-- `InstallForEndpoint` / `RestoreSpeakerConfig` extra DLL exports
