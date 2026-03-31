@@ -1,0 +1,14 @@
+[package]
+name = "windows-apo"
+version = "0.1.0"
+edition = "2021"
+description = "Generic Windows Audio Processing Object (APO) framework for Rust"
+license = "MIT"
+repository = "https://github.com/matbeedotcom/windows-apo-rust"
+links = "windows_apo_cpp"
+
+[dependencies]
+cc = "1"
+
+[build-dependencies]
+cc = "1"
