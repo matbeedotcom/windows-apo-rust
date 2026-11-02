@@ -127,7 +127,8 @@ impl ApoProcessor for MyProcessor {
 
     fn lock(&mut self, ctx: &ProcessContext) {
         // Audio format is now known.
-        // ctx.sample_rate, ctx.input_channels, ctx.output_channels
+        // ctx.sample_rate, ctx.input_channels, ctx.output_channels,
+        // ctx.channel_mask (SPEAKER_* bits), ctx.endpoint_id_hash
     }
 
     fn unlock(&mut self) {
@@ -257,15 +258,45 @@ const CLSID: [u8; 16] = [
 - `IAudioSystemEffects3`: effect list, controllable effects, state change notifications
 - `IAudioProcessingObjectNotifications`: endpoint property change registration
 - `DllRegisterServer` / `DllUnregisterServer`: COM + APO registry entries
-- Debug logging to `C:\ProgramData\HrtfApo\debug.log`
+- Lifecycle debug logging to `C:\ProgramData\HrtfApo\debug.log` (never on the real-time `APOProcess` path)
+- `ProcessContext::endpoint_id_hash`, and the matching `windows_apo::endpoint_hash()` for host processes
 - SEH exception handling around `APOProcess`, `LockForProcess`, `IsInputFormatSupported`
 
 ## What you handle
 
 - All audio DSP logic (in your `process()` method)
 - Resource loading (IR files, configs, models)
-- Any IPC with your GUI (shared memory, named pipes, etc.)
+- The protocol you run over IPC with your GUI or host process
 - Additional DLL exports (installation helpers, etc.)
+
+## Talking to a desktop process
+
+An APO runs inside `audiodg.exe`: session 0, as LocalService, usually as a
+protected process. `windows_apo::shared` provides the one channel that crosses
+that boundary, a `Global\` file mapping with a scoped DACL:
+
+```rust
+use windows_apo::shared::{endpoint_section_name, OwnerPolicy, SharedSection};
+
+// In the APO (initialize or lock, never process): create.
+let name = endpoint_section_name("MyApo", ctx.endpoint_id_hash);
+let section = SharedSection::create(&name, 1 << 20, OwnerPolicy::Service)?;
+
+// In the desktop process: open only. It checks that the owner is a service
+// identity and that the DACL names only expected principals.
+let hash = windows_apo::endpoint_hash("{3f135177-affb-4090-bdee-d19fbf1d9bda}");
+let section = SharedSection::open(&endpoint_section_name("MyApo", hash), 1 << 20, OwnerPolicy::Service)?;
+```
+
+- The APO must be the one that creates the section. Creating a `Global\`
+  object needs `SeCreateGlobalPrivilege`, which LocalService has and a normal
+  user process doesn't, so the desktop side retries `open` until the APO has
+  run.
+- The DACL grants SYSTEM, Administrators, LocalService, NetworkService,
+  Interactive Users and the creator. Any process in the interactive session can
+  therefore map the section; design your protocol with that in mind.
+- Put only atomics and plain data in the mapping, and keep `process()` to
+  loads, stores and copies: no waits, no kernel calls.
 
 ## Requirements
 

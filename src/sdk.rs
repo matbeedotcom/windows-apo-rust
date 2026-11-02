@@ -35,7 +35,29 @@ const CPP_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/cpp");
 /// 1. Run `vswhere.exe` to find the VS installation root
 /// 2. Glob for the latest MSVC toolchain version
 /// 3. Scan `Program Files (x86)/Windows Kits/10/` for the latest SDK version
+///
+/// If `CXX` points at an MSVC `cl.exe`, that toolchain is used instead of
+/// steps 1–2.
 pub fn detect_sdk_paths() -> Result<SdkPaths, String> {
+    // An explicit `CXX` (e.g. `...\VC\Tools\MSVC\<ver>\bin\Hostx64\x64\cl.exe`)
+    // pins the toolchain: take the STL, ATL headers and libraries from that
+    // same MSVC version, so compiler, headers and libs always match.
+    if let Some(cl) = std::env::var_os("CXX").map(PathBuf::from) {
+        let root = cl
+            .ancestors()
+            .nth(4)
+            .ok_or("CXX does not look like <MSVC>/bin/Host*/*/cl.exe")?
+            .to_path_buf();
+        let (sdk_include, sdk_lib) = find_windows_sdk()?;
+        return Ok(SdkPaths {
+            sdk_include,
+            sdk_lib,
+            msvc_include: root.join("include"),
+            msvc_lib: root.join("lib/x64"),
+            atl_include: root.join("atlmfc/include"),
+            atl_lib: root.join("atlmfc/lib/x64"),
+        });
+    }
     let vs_root = find_vs_installation()?;
     let (msvc_include, msvc_lib, atl_include, atl_lib) = find_msvc_paths(&vs_root)?;
     let (sdk_include, sdk_lib) = find_windows_sdk()?;
@@ -52,6 +74,20 @@ pub fn detect_sdk_paths() -> Result<SdkPaths, String> {
 
 /// Configure a `cc::Build` with all necessary includes and defines for APO compilation.
 pub fn configure_cc_build(build: &mut cc::Build, paths: &SdkPaths) {
+    // Compile with the cl.exe that belongs to the headers we just picked.
+    // Left to itself, cc-rs may find a different (older) MSVC install, and
+    // its compiler then fails the STL's version check (STL1001) against
+    // these headers.
+    if std::env::var_os("CXX").is_none() {
+        if let Some(cl) = paths
+            .msvc_include
+            .parent()
+            .map(|msvc| msvc.join("bin/Hostx64/x64/cl.exe"))
+            .filter(|cl| cl.exists())
+        {
+            build.compiler(cl);
+        }
+    }
     build
         .include(&paths.msvc_include)
         .include(&paths.atl_include)

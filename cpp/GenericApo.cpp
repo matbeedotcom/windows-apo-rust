@@ -28,6 +28,31 @@ static void DebugLogf(const char* fmt, ...)
     DebugLog(buf);
 }
 
+// ── Endpoint identity ──────────────────────────────────────────────────
+
+// FNV-1a 64 over the lower-cased endpoint GUID, i.e. the part of the
+// IMMDevice id after its last '.' ("{0.0.1.00000000}.{guid}" -> "{guid}").
+// `windows_apo::endpoint_hash` computes the same value from Rust, so a host
+// process can name shared objects after the endpoint the APO is running on.
+// Called from LockForProcess, never from the real-time path.
+static unsigned long long EndpointIdHash(IMMDevice* endpoint)
+{
+    if (!endpoint) return 0;
+    LPWSTR id = nullptr;
+    if (FAILED(endpoint->GetId(&id)) || !id) return 0;
+    const wchar_t* guid = wcsrchr(id, L'.');
+    guid = guid ? guid + 1 : id;
+    unsigned long long hash = 14695981039346656037ULL;
+    for (const wchar_t* c = guid; *c; c++) {
+        wchar_t letter = *c;
+        if (letter >= L'A' && letter <= L'Z') letter += L'a' - L'A';
+        hash ^= static_cast<unsigned char>(letter);
+        hash *= 1099511628211ULL;
+    }
+    CoTaskMemFree(id);
+    return hash;
+}
+
 // ── Static registration ────────────────────────────────────────────────
 
 // Build CRegAPOProperties from the Rust-provided registration at DLL load time.
@@ -63,6 +88,7 @@ GenericApo::GenericApo(IUnknown* pUnkOuter)
         this->pUnkOuter = reinterpret_cast<IUnknown*>(static_cast<INonDelegatingUnknown*>(this));
 
     inputChannels = 0;
+    channelMask = 0;
     outputChannels = 0;
     sampleRate = 48000.0f;
     firstProcess = true;
@@ -391,6 +417,7 @@ HRESULT GenericApo::LockForProcess(
         if (ppInputConnections[0]->pFormat) {
             ppInputConnections[0]->pFormat->GetUncompressedAudioFormat(&inFormat);
             inputChannels = inFormat.dwSamplesPerFrame;
+            channelMask = inFormat.dwChannelMask;
         }
 
         UNCOMPRESSEDAUDIOFORMAT outFormat = {};
@@ -401,7 +428,8 @@ HRESULT GenericApo::LockForProcess(
 
         sampleRate = inFormat.fFramesPerSecond;
         if (sampleRate < 1.0f) sampleRate = 48000.0f;
-        DebugLogf("Channels: in=%u, out=%u, rate=%.0f", inputChannels, outputChannels, sampleRate);
+        DebugLogf("Channels: in=%u, out=%u, rate=%.0f, mask=0x%08X",
+                  inputChannels, outputChannels, sampleRate, channelMask);
 
         HRESULT hr = CBaseAudioProcessingObject::LockForProcess(
             u32NumInputConnections, ppInputConnections,
@@ -412,7 +440,8 @@ HRESULT GenericApo::LockForProcess(
 
         // Notify Rust processor
         if (callbacks && callbacks->on_lock && userData) {
-            callbacks->on_lock(userData, inputChannels, outputChannels, sampleRate);
+            callbacks->on_lock(userData, inputChannels, outputChannels, sampleRate,
+                               channelMask, EndpointIdHash(audioEndpoint));
         }
 
         return hr;
@@ -448,12 +477,9 @@ void GenericApo::APOProcess(
     float* buffer = reinterpret_cast<float*>(ppInputConnections[0]->pBuffer);
     UINT32 nFrames = ppInputConnections[0]->u32ValidFrameCount;
 
-    if (firstProcess) {
-        firstProcess = false;
-        DebugLogf("APOProcess first: frames=%u, in=%u, out=%u, inplace=%d",
-                  nFrames, inputChannels, outputChannels,
-                  (buffer == reinterpret_cast<float*>(ppOutputConnections[0]->pBuffer)) ? 1 : 0);
-    }
+    // No logging on this path: it runs on the MMCSS real-time thread, and a
+    // file write here can glitch the whole audio engine. Consumers publish
+    // RT diagnostics through their own lock-free channel instead.
 
     switch (ppInputConnections[0]->u32BufferFlags)
     {
@@ -475,7 +501,7 @@ void GenericApo::APOProcess(
     }
     }
     } __except(EXCEPTION_EXECUTE_HANDLER) {
-        DebugLogf("APOProcess CRASHED: exception 0x%08lX", GetExceptionCode());
+        // Real-time thread: no logging (see above). Output silence instead.
         if (u32NumOutputConnections > 0) {
             ppOutputConnections[0]->u32BufferFlags = BUFFER_SILENT;
         }

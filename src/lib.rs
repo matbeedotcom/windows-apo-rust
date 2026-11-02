@@ -31,8 +31,25 @@
 
 pub mod ffi_types;
 pub mod sdk;
+#[cfg(windows)]
+pub mod shared;
 
 pub use ffi_types::{ApoCallbacks, ApoRegistration};
+
+/// FNV-1a 64 hash of an audio endpoint's GUID, matching
+/// [`ProcessContext::endpoint_id_hash`].
+///
+/// Accepts either a full `IMMDevice` id (`{0.0.1.00000000}.{guid}`) or just
+/// the `{guid}` part (the endpoint's subkey name under
+/// `MMDevices\Audio\Render` / `Capture`); case is ignored. A host process
+/// uses this to find the shared objects an APO instance named after its
+/// endpoint.
+pub fn endpoint_hash(endpoint_id: &str) -> u64 {
+    let guid = endpoint_id.rsplit('.').next().unwrap_or(endpoint_id);
+    guid.bytes().fold(14695981039346656037, |hash, byte| {
+        (hash ^ byte.to_ascii_lowercase() as u64).wrapping_mul(1099511628211)
+    })
+}
 
 /// Context provided to [`ApoProcessor::lock`] with the negotiated audio format.
 #[derive(Debug, Clone, Copy)]
@@ -40,6 +57,12 @@ pub struct ProcessContext {
     pub sample_rate: f32,
     pub input_channels: u32,
     pub output_channels: u32,
+    /// `dwChannelMask` of the negotiated input format (`SPEAKER_*` bits).
+    /// 0 when the engine didn't supply one.
+    pub channel_mask: u32,
+    /// [`endpoint_hash`] of the endpoint this instance runs on, or 0 when
+    /// the engine didn't pass an endpoint (pre-`APOInitSystemEffects3`).
+    pub endpoint_id_hash: u64,
 }
 
 /// APO flags matching `APO_FLAG` values from the Windows SDK.
@@ -185,6 +208,8 @@ macro_rules! apo_entry {
             in_channels: u32,
             out_channels: u32,
             sample_rate: f32,
+            channel_mask: u32,
+            endpoint_id_hash: u64,
         ) -> bool {
             if user_data.is_null() {
                 return false;
@@ -195,6 +220,8 @@ macro_rules! apo_entry {
                 sample_rate,
                 input_channels: in_channels,
                 output_channels: out_channels,
+                channel_mask,
+                endpoint_id_hash,
             });
             true
         }

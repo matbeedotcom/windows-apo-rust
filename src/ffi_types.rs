@@ -21,6 +21,8 @@ pub struct ApoCallbacks {
             in_channels: u32,
             out_channels: u32,
             sample_rate: f32,
+            channel_mask: u32,
+            endpoint_id_hash: u64,
         ) -> bool,
     >,
 
