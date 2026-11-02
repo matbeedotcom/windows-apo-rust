@@ -177,8 +177,15 @@ if (-not $Dll) { throw '-Dll is required to install.' }
 $src = (Resolve-Path $Dll).Path
 $dst = Join-Path $dataDir (Split-Path -Leaf $src)
 try { Copy-Item $src $dst -Force } catch {
-    throw "Could not replace $dst (is audiodg.exe holding it? Uninstall first or restart the audio services): $_"
+    # audiodg.exe keeps the old DLL mapped while any stream runs. A mapped
+    # file can't be overwritten but can be renamed; the restart below then
+    # loads the new copy, and the stale one is removed on a later install.
+    $stale = "$dst.old-$(Get-Date -Format yyyyMMddHHmmss)"
+    Move-Item $dst $stale -Force
+    Copy-Item $src $dst -Force
+    Say "previous DLL was in use; moved to $stale"
 }
+Get-ChildItem "$dst.old-*" -ErrorAction SilentlyContinue | ForEach-Object { try { Remove-Item $_.FullName -Force } catch {} }
 & icacls.exe $dataDir /grant '*S-1-1-0:(OI)(CI)RX' '*S-1-5-19:(OI)(CI)RX' /T /Q | Out-Null
 $p = Start-Process regsvr32.exe -ArgumentList '/s', "`"$dst`"" -Wait -PassThru
 if ($p.ExitCode -ne 0) { throw "regsvr32 $dst failed ($($p.ExitCode))" }

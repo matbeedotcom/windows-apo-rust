@@ -475,7 +475,13 @@ void GenericApo::APOProcess(
     __try {
     if (u32NumInputConnections == 0 || u32NumOutputConnections == 0) return;
 
-    float* buffer = reinterpret_cast<float*>(ppInputConnections[0]->pBuffer);
+    float* input = reinterpret_cast<float*>(ppInputConnections[0]->pBuffer);
+    // APO_FLAG_INPLACE says we *can* share one buffer, not that the engine
+    // will hand us one: capture endpoint effects, for example, get separate
+    // input and output buffers. Always process in the output buffer, copying
+    // the input over first when they differ; otherwise the output stays
+    // zeroed and the endpoint goes silent.
+    float* buffer = reinterpret_cast<float*>(ppOutputConnections[0]->pBuffer);
     UINT32 nFrames = ppInputConnections[0]->u32ValidFrameCount;
 
     // No logging on this path: it runs on the MMCSS real-time thread, and a
@@ -490,6 +496,8 @@ void GenericApo::APOProcess(
         bool isSilent = (ppInputConnections[0]->u32BufferFlags == BUFFER_SILENT);
         if (isSilent)
             memset(buffer, 0, nFrames * inputChannels * sizeof(float));
+        else if (buffer != input)
+            memcpy(buffer, input, nFrames * inputChannels * sizeof(float));
 
         // Dispatch to Rust processor
         if (callbacks && callbacks->process && userData) {
