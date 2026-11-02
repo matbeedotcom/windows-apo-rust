@@ -10,7 +10,7 @@
 
 struct ApoCallbacks {
     bool (*on_initialize)(void* user_data, float sample_rate);
-    bool (*on_lock)(void* user_data, unsigned int in_channels, unsigned int out_channels, float sample_rate, unsigned int channel_mask, unsigned long long endpoint_id_hash);
+    bool (*on_lock)(void* user_data, unsigned int in_channels, unsigned int out_channels, float sample_rate, unsigned int channel_mask, unsigned long long endpoint_id_hash, const unsigned char* processing_mode);
     void (*on_unlock)(void* user_data);
     void (*process)(void* user_data, float* buffer, unsigned int n_frames, unsigned int channels, bool is_silent);
     void (*destroy)(void* user_data);

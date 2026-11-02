@@ -23,6 +23,7 @@ pub struct ApoCallbacks {
             sample_rate: f32,
             channel_mask: u32,
             endpoint_id_hash: u64,
+            processing_mode: *const u8,
         ) -> bool,
     >,
 

@@ -128,7 +128,8 @@ impl ApoProcessor for MyProcessor {
     fn lock(&mut self, ctx: &ProcessContext) {
         // Audio format is now known.
         // ctx.sample_rate, ctx.input_channels, ctx.output_channels,
-        // ctx.channel_mask (SPEAKER_* bits), ctx.endpoint_id_hash
+        // ctx.channel_mask (SPEAKER_* bits), ctx.endpoint_id_hash,
+        // ctx.processing_mode (compare with windows_apo::processing_mode::RAW etc.)
     }
 
     fn unlock(&mut self) {

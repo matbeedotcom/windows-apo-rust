@@ -63,6 +63,29 @@ pub struct ProcessContext {
     /// [`endpoint_hash`] of the endpoint this instance runs on, or 0 when
     /// the engine didn't pass an endpoint (pre-`APOInitSystemEffects3`).
     pub endpoint_id_hash: u64,
+    /// `AUDIO_SIGNALPROCESSINGMODE_*` GUID this instance was created for
+    /// (raw 16-byte layout, see [`processing_mode`]). DEFAULT unless the
+    /// engine passed `APOInitSystemEffects3`.
+    pub processing_mode: [u8; 16],
+}
+
+/// `AUDIO_SIGNALPROCESSINGMODE_*` GUIDs in [`ProcessContext::processing_mode`] layout.
+pub mod processing_mode {
+    /// `{C18E2F7E-933D-4965-B7D1-1EEF228D2AF3}`
+    pub const DEFAULT: [u8; 16] = guid(0xC18E2F7E, 0x933D, 0x4965, [0xB7, 0xD1, 0x1E, 0xEF, 0x22, 0x8D, 0x2A, 0xF3]);
+    /// `{9E90EA20-B493-4FD1-A1A8-7E1361A956CF}`
+    pub const RAW: [u8; 16] = guid(0x9E90EA20, 0xB493, 0x4FD1, [0xA1, 0xA8, 0x7E, 0x13, 0x61, 0xA9, 0x56, 0xCF]);
+    /// `{98951333-B9CD-48B1-A0A3-FF40682D73F7}`
+    pub const COMMUNICATIONS: [u8; 16] = guid(0x98951333, 0xB9CD, 0x48B1, [0xA0, 0xA3, 0xFF, 0x40, 0x68, 0x2D, 0x73, 0xF7]);
+    /// `{FC1CFC9B-B9D6-4CFA-B5E0-4BB2166878B2}`
+    pub const SPEECH: [u8; 16] = guid(0xFC1CFC9B, 0xB9D6, 0x4CFA, [0xB5, 0xE0, 0x4B, 0xB2, 0x16, 0x68, 0x78, 0xB2]);
+
+    const fn guid(d1: u32, d2: u16, d3: u16, d4: [u8; 8]) -> [u8; 16] {
+        let a = d1.to_le_bytes();
+        let b = d2.to_le_bytes();
+        let c = d3.to_le_bytes();
+        [a[0], a[1], a[2], a[3], b[0], b[1], c[0], c[1], d4[0], d4[1], d4[2], d4[3], d4[4], d4[5], d4[6], d4[7]]
+    }
 }
 
 /// APO flags matching `APO_FLAG` values from the Windows SDK.
@@ -210,6 +233,7 @@ macro_rules! apo_entry {
             sample_rate: f32,
             channel_mask: u32,
             endpoint_id_hash: u64,
+            processing_mode: *const u8,
         ) -> bool {
             if user_data.is_null() {
                 return false;
@@ -222,6 +246,11 @@ macro_rules! apo_entry {
                 output_channels: out_channels,
                 channel_mask,
                 endpoint_id_hash,
+                processing_mode: if processing_mode.is_null() {
+                    $crate::processing_mode::DEFAULT
+                } else {
+                    unsafe { *(processing_mode as *const [u8; 16]) }
+                },
             });
             true
         }

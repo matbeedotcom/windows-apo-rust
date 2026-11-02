@@ -441,7 +441,8 @@ HRESULT GenericApo::LockForProcess(
         // Notify Rust processor
         if (callbacks && callbacks->on_lock && userData) {
             callbacks->on_lock(userData, inputChannels, outputChannels, sampleRate,
-                               channelMask, EndpointIdHash(audioEndpoint));
+                               channelMask, EndpointIdHash(audioEndpoint),
+                               reinterpret_cast<const unsigned char*>(&audioProcessingMode));
         }
 
         return hr;
