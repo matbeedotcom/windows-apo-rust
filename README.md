@@ -306,8 +306,7 @@ capture endpoint, in the SFX, MFX or EFX slot, and `-Uninstall` puts back
 exactly what was there:
 
 ```powershell
-.\scripts\Install-Apo.ps1 -Name MyApo -Clsid '{...}' -Dll .	arget
-elease\my_apo.dll `
+.\scripts\Install-Apo.ps1 -Name MyApo -Clsid '{...}' -Dll .\target\release\my_apo.dll `
     -Flow Capture -Endpoint '{3f135177-affb-4090-bdee-d19fbf1d9bda}' -Slot EFX -Modes DEFAULT
 .\scripts\Install-Apo.ps1 -Name MyApo -Clsid '{...}' -Flow Capture -Endpoint '{...}' -Slot EFX -Uninstall
 ```
