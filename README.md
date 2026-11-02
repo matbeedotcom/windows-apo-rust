@@ -299,6 +299,26 @@ let section = SharedSection::open(&endpoint_section_name("MyApo", hash), 1 << 20
 - Put only atomics and plain data in the mapping, and keep `process()` to
   loads, stores and copies: no waits, no kernel calls.
 
+## Installing on an endpoint
+
+`scripts/Install-Apo.ps1` (elevated) installs a built APO on one render or
+capture endpoint, in the SFX, MFX or EFX slot, and `-Uninstall` puts back
+exactly what was there:
+
+```powershell
+.\scripts\Install-Apo.ps1 -Name MyApo -Clsid '{...}' -Dll .	argetelease\my_apo.dll `
+    -Flow Capture -Endpoint '{3f135177-affb-4090-bdee-d19fbf1d9bda}' -Slot EFX -Modes DEFAULT
+.\scripts\Install-Apo.ps1 -Name MyApo -Clsid '{...}' -Flow Capture -Endpoint '{...}' -Slot EFX -Uninstall
+```
+
+It copies the DLL to `%ProgramData%\<Name>\`, runs `regsvr32`, takes
+ownership of the endpoint's `FxProperties`, backs up the values it touches to
+`%ProgramData%\<Name>ackup-*.json`, writes the legacy and composite slot
+keys plus the processing modes, and restarts the audio services (re-applying
+if `AudioEndpointBuilder` reset them). Unsigned DLLs also need
+`-AllowUnsignedAudioDG` (sets `DisableProtectedAudioDG=1`, a system-wide
+downgrade).
+
 ## Requirements
 
 - Windows 10/11 x64
