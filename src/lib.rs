@@ -31,6 +31,14 @@
 
 pub mod ffi_types;
 pub mod sdk;
+
+/// The endpoint installer, for tools that ship without this repository.
+pub mod install {
+    /// `scripts/Install-Apo.ps1`: write it to a file and run it elevated
+    /// (`powershell -ExecutionPolicy Bypass -File Install-Apo.ps1 ...`).
+    /// Its comment-based help documents the parameters.
+    pub const SCRIPT: &str = include_str!("../scripts/Install-Apo.ps1");
+}
 #[cfg(windows)]
 pub mod shared;
 
