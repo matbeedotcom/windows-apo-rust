@@ -306,14 +306,15 @@ capture endpoint, in the SFX, MFX or EFX slot, and `-Uninstall` puts back
 exactly what was there:
 
 ```powershell
-.\scripts\Install-Apo.ps1 -Name MyApo -Clsid '{...}' -Dll .	argetelease\my_apo.dll `
+.\scripts\Install-Apo.ps1 -Name MyApo -Clsid '{...}' -Dll .	arget
+elease\my_apo.dll `
     -Flow Capture -Endpoint '{3f135177-affb-4090-bdee-d19fbf1d9bda}' -Slot EFX -Modes DEFAULT
 .\scripts\Install-Apo.ps1 -Name MyApo -Clsid '{...}' -Flow Capture -Endpoint '{...}' -Slot EFX -Uninstall
 ```
 
 It copies the DLL to `%ProgramData%\<Name>\`, runs `regsvr32`, takes
 ownership of the endpoint's `FxProperties`, backs up the values it touches to
-`%ProgramData%\<Name>ackup-*.json`, writes the legacy and composite slot
+`%ProgramData%\<Name>\backup-*.json`, writes the legacy and composite slot
 keys plus the processing modes, and restarts the audio services (re-applying
 if `AudioEndpointBuilder` reset them). Unsigned DLLs also need
 `-AllowUnsignedAudioDG` (sets `DisableProtectedAudioDG=1`, a system-wide
